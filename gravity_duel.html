@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Duel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050510;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Capa de Interfaz de Usuario */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Deja pasar los clics al canvas si es necesario */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Marcador */
+        .scoreboard {
+            display: flex;
+            justify-content: space-between;
+            padding: 2rem 4rem;
+            font-size: 3rem;
+            font-weight: 900;
+        }
+
+        .p1-score {
+            color: #00ffff;
+            text-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
+        }
+
+        .p2-score {
+            color: #ff00ff;
+            text-shadow: 0 0 15px #ff00ff, 0 0 30px #ff00ff;
+        }
+
+        /* Pantallas de Menú / Fin de Juego */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .controls-panel {
+            display: flex;
+            gap: 4rem;
+            margin-bottom: 3rem;
+        }
+
+        .control-box {
+            background: rgba(255,255,255,0.05);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-start {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            font-family: inherit;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-start:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas donde se renderiza el juego 2D -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Interfaz del juego (Marcadores) -->
+    <div id="ui-layer" class="hidden">
+        <div class="scoreboard">
+            <div class="p1-score" id="score1">0</div>
+            <div class="p2-score" id="score2">0</div>
+        </div>
+    </div>
+
+    <!-- Menú Principal y Pantalla de Fin -->
+    <div id="overlay">
+        <h1 class="title" id="mainTitle">GRAVITY DUEL</h1>
+        <h2 id="winner-text" class="text-3xl mb-8 hidden"></h2>
+        
+        <div class="controls-panel" id="controls">
+            <div class="control-box">
+                <h3 class="p1-score text-xl mb-4">JUGADOR 1 (CYAN)</h3>
+                <p><strong>W</strong> : Acelerar</p>
+                <p><strong>A / D</strong> : Rotar</p>
+                <p><strong>S</strong> : Disparar</p>
+            </div>
+            <div class="control-box">
+                <h3 class="p2-score text-xl mb-4">JUGADOR 2 (MAGENTA)</h3>
+                <p><strong>Flecha Arriba</strong> : Acelerar</p>
+                <p><strong>Izq / Der</strong> : Rotar</p>
+                <p><strong>Abajo</strong> : Disparar</p>
+            </div>
+        </div>
+
+        <div class="mb-8 text-center bg-gray-900 bg-opacity-50 p-4 rounded-xl border border-gray-700">
+            <label for="winScoreSlider" class="text-xl font-bold text-white">Puntos para ganar (PvP): <span id="winScoreDisplay" class="text-[#00ffff]">5</span></label><br>
+            <input type="range" id="winScoreSlider" min="1" max="10" value="5" class="mt-4 w-64 cursor-pointer accent-[#ff00ff]">
+        </div>
+
+        <div class="flex gap-4">
+            <button class="btn-start" id="startPvpBtn">DUELO (2P)</button>
+            <button class="btn-start" id="startSpBtn" style="background: linear-gradient(45deg, #00ff00, #0088ff); color: white;">SUPERVIVENCIA (1P)</button>
+            <button class="btn-start hidden" id="menuBtn" style="background: linear-gradient(45deg, #ffaa00, #ff4400); color: white;">VOLVER AL MENÚ</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN E INICIALIZACIÓN ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const uiLayer = document.getElementById('ui-layer');
+        const startPvpBtn = document.getElementById('startPvpBtn');
+        const startSpBtn = document.getElementById('startSpBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const score1El = document.getElementById('score1');
+        const score2El = document.getElementById('score2');
+        const mainTitle = document.getElementById('mainTitle');
+        const winnerText = document.getElementById('winner-text');
+        const controls = document.getElementById('controls');
+        const winScoreSlider = document.getElementById('winScoreSlider');
+        const winScoreDisplay = document.getElementById('winScoreDisplay');
+
+        let width, height, cx, cy;
+        let animationId;
+        let gameState = 'MENU'; // MENU, PLAYING, END
+        let gameMode = 'PVP'; // PVP, SURVIVAL
+        let survivalScore = 0;
+        let spawnTimer = 0;
+
+        // Ajustar tamaño del canvas
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            cx = width / 2;
+            cy = height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- ENTRADA DE TECLADO ---
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.code] = true; });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        // --- SISTEMA FÍSICO Y OBJETOS ---
+        const GRAVITY_STRENGTH = 1500;
+        const FRICTION = 0.99;
+        let WIN_SCORE = 5;
+
+        class Particle {
+            constructor(x, y, color, speed, size, life) {
+                this.x = x; this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const v = Math.random() * speed;
+                this.vx = Math.cos(angle) * v;
+                this.vy = Math.sin(angle) * v;
+                this.size = size;
+                this.life = life;
+                this.maxLife = life;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.life--;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, angle, color, owner) {
+                this.x = x; this.y = y;
+                this.vx = Math.cos(angle) * 12;
+                this.vy = Math.sin(angle) * 12;
+                this.color = color;
+                this.owner = owner;
+                this.life = 150;
+                this.radius = 3;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.life--;
+                
+                // Gravedad afecta a las balas un poco
+                const dx = cx - this.x;
+                const dy = cy - this.y;
+                const distSq = dx*dx + dy*dy;
+                const force = (GRAVITY_STRENGTH * 0.5) / (distSq || 1);
+                const dist = Math.sqrt(distSq);
+                this.vx += (dx / dist) * force;
+                this.vy += (dy / dist) * force;
+
+                // Destruir la bala al tocar los bordes de la pantalla
+                if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+                    this.life = 0;
+                }
+            }
+            draw(ctx) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Asteroid {
+            constructor() {
+                // Aparecen en los bordes de la pantalla
+                if (Math.random() > 0.5) {
+                    this.x = Math.random() > 0.5 ? 0 : width;
+                    this.y = Math.random() * height;
+                } else {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() > 0.5 ? 0 : height;
+                }
+                this.radius = 10 + Math.random() * 15;
+                this.color = '#aaaaaa';
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+            }
+            update() {
+                // Son atraídos por la gravedad
+                const dx = cx - this.x;
+                const dy = cy - this.y;
+                const distSq = dx*dx + dy*dy;
+                const force = (GRAVITY_STRENGTH * 0.5) / (distSq || 1);
+                const dist = Math.sqrt(distSq);
+                
+                this.vx += (dx / dist) * force;
+                this.vy += (dy / dist) * force;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Efecto pacman al salir de pantalla
+                if(this.x < 0) this.x = width; if(this.x > width) this.x = 0;
+                if(this.y < 0) this.y = height; if(this.y > height) this.y = 0;
+            }
+            draw(ctx) {
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        class Ship {
+            constructor(x, y, color, controls, isP1) {
+                this.x = x; this.y = y;
+                this.vx = 0; this.vy = 0;
+                this.angle = isP1 ? 0 : Math.PI;
+                this.color = color;
+                this.controls = controls;
+                this.radius = 12;
+                this.cooldown = 0;
+                this.score = 0;
+                this.isP1 = isP1;
+                this.dead = false;
+                this.respawnTimer = 0;
+                this.angle_change = 0.04;
+            }
+
+            respawn() {
+                this.dead = false;
+                this.x = this.isP1 ? cx * 0.3 : cx * 1.7;
+                this.y = cy;
+                this.vx = 0; this.vy = 0;
+                this.angle = this.isP1 ? 0 : Math.PI;
+            }
+
+            update() {
+                if (this.dead) {
+                    this.respawnTimer--;
+                    if (this.respawnTimer <= 0) this.respawn();
+                    return;
+                }
+
+                // Rotación
+                if (keys[this.controls.left]) 
+                {
+                    this.angle -= this.angle_change;
+                    this.angle_change += 0.003;
+                }
+                else if (keys[this.controls.right])
+                {
+                    this.angle += this.angle_change;
+                    this.angle_change += 0.003;
+                }
+                else
+                {
+                    this.angle_change = 0.04;
+                }
+
+                // Propulsión
+                if (keys[this.controls.thrust]) {
+                    this.vx += Math.cos(this.angle) * 0.2;
+                    this.vy += Math.sin(this.angle) * 0.2;
+                    // Partículas de propulsor
+                    particles.push(new Particle(
+                        this.x - Math.cos(this.angle) * 10,
+                        this.y - Math.sin(this.angle) * 10,
+                        this.color, 2, 2, 20
+                    ));
+                }
+
+                // Fricción
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                // Gravedad hacia el centro
+                const dx = cx - this.x;
+                const dy = cy - this.y;
+                const distSq = dx*dx + dy*dy;
+                const force = GRAVITY_STRENGTH / (distSq || 1);
+                const dist = Math.sqrt(distSq);
+                
+                this.vx += (dx / dist) * force;
+                this.vy += (dy / dist) * force;
+
+                // Actualizar posición
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Pantalla infinita (Wrap)
+                if(this.x < 0) this.x = width; if(this.x > width) this.x = 0;
+                if(this.y < 0) this.y = height; if(this.y > height) this.y = 0;
+
+                // Disparo
+                if (this.cooldown > 0) this.cooldown--;
+                if (keys[this.controls.shoot] && this.cooldown <= 0) {
+                    bullets.push(new Bullet(
+                        this.x + Math.cos(this.angle) * 15,
+                        this.y + Math.sin(this.angle) * 15,
+                        this.angle, this.color, this
+                    ));
+                    this.cooldown = 15; // Tasa de disparo
+                }
+
+                // Colisión con el agujero negro (Centro)
+                if (dist < 40) {
+                    this.die();
+                    // Dar punto al otro jugador si mueres por gravedad y verificar victoria
+                    if (gameMode === 'PVP') {
+                        const otherShip = this.isP1 ? p2 : p1;
+                        otherShip.score++;
+                        updateScores();
+                        checkWin(); 
+                    } else {
+                        checkWin(); // Para el modo supervivencia
+                    }
+                }
+            }
+
+            draw(ctx) {
+                if (this.dead) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+
+                ctx.beginPath();
+                ctx.moveTo(15, 0); // Punta
+                ctx.lineTo(-10, 10); // Abajo Izq
+                ctx.lineTo(-5, 0); // Centro Atrás
+                ctx.lineTo(-10, -10); // Arriba Izq
+                ctx.closePath();
+                
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            die() {
+                this.dead = true;
+                this.respawnTimer = 100;
+                if (gameMode === 'PVP')
+                {
+                    const otherShip = this.isP1 ? p2 : p1;
+                    otherShip.x = this.isP1 ? cx * 1.7 : cx * 0.3;
+                    otherShip.y = cy;
+                }
+                // Explosión
+                for(let i=0; i<40; i++) {
+                    particles.push(new Particle(this.x, this.y, this.color, 5, 3, 40));
+                }
+                // (Eliminado el checkWin de aquí para controlar el orden de puntaje)
+            }
+        }
+
+        // --- ESTADO GLOBAL ---
+        let p1, p2;
+        let bullets = [];
+        let particles = [];
+        let bgStars = [];
+        let asteroids = [];
+
+        function initGame(mode = 'PVP') {
+            gameMode = mode;
+            // Inicializar estrellas fondo
+            bgStars = [];
+            for(let i=0; i<100; i++) {
+                bgStars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2,
+                    speed: Math.random() * 0.5
+                });
+            }
+
+            p1 = new Ship(cx * 0.3, cy, '#00ffff', { thrust: 'KeyW', left: 'KeyA', right: 'KeyD', shoot: 'KeyS' }, true);
+            if (gameMode === 'PVP') {
+                p2 = new Ship(cx * 1.7, cy, '#ff00ff', { thrust: 'ArrowUp', left: 'ArrowLeft', right: 'ArrowRight', shoot: 'ArrowDown' }, false);
+                score2El.classList.remove('hidden');
+            } else {
+                p2 = null;
+                score2El.classList.add('hidden'); // Ocultar score del jugador 2
+                survivalScore = 0;
+            }
+
+            // Limpiamos los asteroides y el timer para TODOS los modos de juego
+            asteroids = [];
+            spawnTimer = 0;
+            bullets = [];
+            particles = [];
+            updateScores();
+            
+            gameState = 'PLAYING';
+            overlay.classList.add('hidden');
+            uiLayer.classList.remove('hidden');
+            menuBtn.classList.add('hidden');
+        }
+
+        function updateScores() {
+            if (gameMode === 'PVP') {
+                score1El.innerText = p1.score;
+                if (p2) score2El.innerText = p2.score;
+            } else {
+                score1El.innerText = "PUNTOS: " + survivalScore;
+            }
+        }
+
+        function checkWin() {
+            if (gameMode === 'PVP') {
+                if (p1.score >= WIN_SCORE || (p2 && p2.score >= WIN_SCORE)) {
+                    gameState = 'END';
+                    uiLayer.classList.add('hidden');
+                    overlay.classList.remove('hidden');
+                    controls.classList.add('hidden');
+                    
+                    winnerText.classList.remove('hidden');
+                    if (p1.score >= WIN_SCORE) {
+                        winnerText.innerText = "¡JUGADOR 1 VICTORIA!";
+                        winnerText.className = 'text-5xl mb-8 p1-score font-bold';
+                    } else {
+                        winnerText.innerText = "¡JUGADOR 2 VICTORIA!";
+                        winnerText.className = 'text-5xl mb-8 p2-score font-bold';
+                    }
+                    
+                    startPvpBtn.innerText = "VOLVER A JUGAR";
+                    startPvpBtn.classList.remove('hidden');
+                    startSpBtn.classList.add('hidden');
+                    menuBtn.classList.remove('hidden');
+                    mainTitle.innerText = "FIN DEL JUEGO";
+                }
+            } else if (gameMode === 'SURVIVAL') {
+                if (p1.dead) {
+                    gameState = 'END';
+                    uiLayer.classList.add('hidden');
+                    overlay.classList.remove('hidden');
+                    controls.classList.add('hidden');
+                    
+                    winnerText.classList.remove('hidden');
+                    winnerText.innerText = "¡FIN! PUNTOS: " + survivalScore;
+                    winnerText.className = 'text-5xl mb-8 text-green-400 font-bold';
+                    
+                    startPvpBtn.classList.remove('hidden');
+                    startPvpBtn.innerText = "DUELO";
+                    startSpBtn.classList.remove('hidden');
+                    startSpBtn.innerText = "REINTENTAR";
+                    menuBtn.classList.remove('hidden');
+                    mainTitle.innerText = "DESTRUIDO";
+                }
+            }
+        }
+
+        function drawBlackHole(time) {
+            // Efecto pulsante
+            const pulse = Math.sin(time * 0.005) * 5;
+            
+            ctx.shadowBlur = 40 + pulse;
+            ctx.shadowColor = '#6a0dad';
+            
+            // Halo exterior
+            ctx.fillStyle = 'rgba(106, 13, 173, 0.2)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 60 + pulse*2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Núcleo
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#fff';
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Borde brillante
+            ctx.strokeStyle = '#6a0dad';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = '#ffffff';
+            bgStars.forEach(star => {
+                ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.001 * star.speed) * 0.5;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Rotación suave del fondo alrededor del centro
+                const dx = star.x - cx;
+                const dy = star.y - cy;
+                const angle = Math.atan2(dy, dx) + 0.001;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                star.x = cx + Math.cos(angle) * dist;
+                star.y = cy + Math.sin(angle) * dist;
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        // --- BUCLE PRINCIPAL ---
+        function loop(timestamp) {
+            if (gameState === 'PLAYING') {
+                update(timestamp);
+                draw(timestamp);
+            } else if (gameState === 'MENU' || gameState === 'END') {
+                drawBackground();
+                drawBlackHole(timestamp);
+                // Si estamos en menú, dibujar estrellas moviéndose
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        function update(timestamp) {
+            p1.update();
+            if (p2) p2.update();
+
+            // Lógica de Asteroides en Supervivencia
+            if (gameMode === 'SURVIVAL') {
+                spawnTimer++;
+                if (spawnTimer > 60 - Math.min(45, survivalScore * 2)) { // Aumenta la dificultad
+                    asteroids.push(new Asteroid());
+                    spawnTimer = 0;
+                }
+                for (let i = asteroids.length - 1; i >= 0; i--) {
+                    let a = asteroids[i];
+                    a.update();
+                    
+                    // Colision con Agujero Negro (se los traga)
+                    if (Math.hypot(cx - a.x, cy - a.y) < 35) {
+                        asteroids.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Colision con jugador 1
+                    if (!p1.dead && Math.hypot(p1.x - a.x, p1.y - a.y) < p1.radius + a.radius) {
+                        p1.die();
+                        checkWin(); // Revisar si perdió
+                        asteroids.splice(i, 1);
+                        continue;
+                    }
+                }
+            }
+
+            // Actualizar Balas
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.update();
+
+                // Eliminar balas muertas
+                if (b.life <= 0) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Colisión Bala con Agujero Negro
+                const distToCenter = Math.hypot(cx - b.x, cy - b.y);
+                if (distToCenter < 35) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                if (gameMode === 'SURVIVAL') {
+                    let hitAsteroid = false;
+                    for (let j = asteroids.length - 1; j >= 0; j--) {
+                        let a = asteroids[j];
+                        if (Math.hypot(a.x - b.x, a.y - b.y) < a.radius + b.radius) {
+                            asteroids.splice(j, 1);
+                            bullets.splice(i, 1);
+                            survivalScore++;
+                            updateScores();
+                            // Generar particulas de explosión
+                            for(let k=0; k<15; k++) particles.push(new Particle(a.x, a.y, a.color, 3, 2, 20));
+                            hitAsteroid = true;
+                            break;
+                        }
+                    }
+                    if (hitAsteroid) continue;
+                } else {
+                    // Colisión Bala con Nave P1
+                    if (!p1.dead && b.owner !== p1 && Math.hypot(p1.x - b.x, p1.y - b.y) < p1.radius + b.radius) {
+                        p1.die();
+                        p2.score++;
+                        bullets.splice(i, 1);
+                        updateScores();
+                        checkWin(); // Se verifica después de actualizar puntaje
+                        continue;
+                    }
+                    
+                    // Colisión Bala con Nave P2
+                    if (p2 && !p2.dead && b.owner !== p2 && Math.hypot(p2.x - b.x, p2.y - b.y) < p2.radius + b.radius) {
+                        p2.die();
+                        p1.score++;
+                        bullets.splice(i, 1);
+                        updateScores();
+                        checkWin(); // Se verifica después de actualizar puntaje
+                        continue;
+                    }
+                }
+            }
+
+            // Actualizar Partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function draw(timestamp) {
+            // Fondo con rastro suave
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+
+            drawBackground();
+            drawBlackHole(timestamp);
+
+            particles.forEach(p => p.draw(ctx));
+            bullets.forEach(b => b.draw(ctx));
+            asteroids.forEach(a => a.draw(ctx));
+            
+            p1.draw(ctx);
+            if (p2) p2.draw(ctx);
+        }
+
+        // --- EVENTOS ---
+        startPvpBtn.addEventListener('click', () => {
+            initGame('PVP');
+        });
+        
+        startSpBtn.addEventListener('click', () => {
+            initGame('SURVIVAL');
+        });
+
+        menuBtn.addEventListener('click', () => {
+            gameState = 'MENU';
+            overlay.classList.remove('hidden');
+            uiLayer.classList.add('hidden');
+            controls.classList.remove('hidden');
+            winnerText.classList.add('hidden');
+            mainTitle.innerText = "GRAVITY DUEL";
+            startPvpBtn.innerText = "DUELO (2P)";
+            startSpBtn.innerText = "SUPERVIVENCIA (1P)";
+            startPvpBtn.classList.remove('hidden');
+            startSpBtn.classList.remove('hidden');
+            menuBtn.classList.add('hidden');
+        });
+
+        // Escuchador de eventos para el slider
+        winScoreSlider.addEventListener('input', (e) => {
+            WIN_SCORE = parseInt(e.target.value);
+            winScoreDisplay.innerText = WIN_SCORE;
+        });
+
+        // Iniciar el renderizado
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
